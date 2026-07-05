@@ -285,7 +285,7 @@ def aniso_render(splats, shape):
 
 
 def _aniso_optimize(target, centers, amps, Ls, steps=200, lr=0.15,
-                    early_stop=False, min_steps=40, patience=20, tol=0.004, stats=None):
+                    early_stop=False, min_steps=40, patience=20, tol=0.008, stats=None):
     """Adam optimisation of anisotropic splats from an EXPLICIT init (centers (K,n), amps (K,), Ls (K,n,n)) --
     the shared gradient engine behind both the one-shot `aniso_fit` (iso warm start) and the coarse-to-fine
     `densify_fit` (staged warm start). Returns (centers, amps, Ls, rendered). The C3 convergence-gated early-stop
@@ -343,7 +343,7 @@ def _aniso_optimize(target, centers, amps, Ls, steps=200, lr=0.15,
 
 
 def aniso_fit(target, K, steps=200, lr=0.15, scales=(1.0, 2.0, 3.5, 6.0),
-              early_stop=False, min_steps=40, patience=20, tol=0.004, stats=None):
+              early_stop=False, min_steps=40, patience=20, tol=0.008, stats=None):
     """Fit `target` (any n-D array) with K ANISOTROPIC Gaussian splats by gradient descent on the
     reconstruction MSE -- the 3D-Gaussian-Splatting primitive (oriented, elliptical Gaussians), in NumPy with
     analytical gradients and a small built-in Adam (no autodiff framework). Warm-started from the isotropic
@@ -381,13 +381,15 @@ def aniso_fit(target, K, steps=200, lr=0.15, scales=(1.0, 2.0, 3.5, 6.0),
     return splats, rendered
 
 
-def densify_fit(target, K, stage_steps=(50, 80, 210), scales=(1.0, 2.0, 3.5, 6.0), stats=None):
+def densify_fit(target, K, stage_steps=(80, 120, 300), scales=(1.0, 2.0, 3.5, 6.0), lr=0.08, stats=None):
     """COARSE-TO-FINE anisotropic splat fit (C1) -- 3D-Gaussian-Splatting densification, from scratch. Instead of
     placing all K isotropic splats at once and running ONE joint gradient fit (`aniso_fit`), grow the set in
     STAGES: place a fraction of the splats on the current RESIDUAL (matching pursuit, coarse scales first), then
     jointly optimise everything so far, then place more splats where the re-optimised reconstruction still errs,
     and optimise again. `stage_steps` gives the Adam steps per stage (the last stage should be long enough to
-    fully converge the whole set). Returns (splats, rendered); pass stats={} to read stats['stages'].
+    fully converge the whole set), and the default lower `lr` damps the late-stage Adam instability that can
+    otherwise leave the staged warm start worse than one-shot on newer BLAS/numpy builds. Returns
+    (splats, rendered); pass stats={} to read stats['stages'].
 
     WHY THIS BEATS THE ONE-SHOT (measured): the staged placement is a far better WARM START for the final joint
     fit -- it lands in a better basin of the non-convex loss. On a multi-scale target (a broad blob + small sharp
@@ -420,7 +422,7 @@ def densify_fit(target, K, stage_steps=(50, 80, 210), scales=(1.0, 2.0, 3.5, 6.0
         centers = np.vstack([centers, nc]) if len(centers) else nc
         amps = np.concatenate([amps, na])
         Ls = np.concatenate([Ls, nl]) if len(Ls) else nl
-        centers, amps, Ls, rendered = _aniso_optimize(target, centers, amps, Ls, steps=steps)   # re-fit ALL
+        centers, amps, Ls, rendered = _aniso_optimize(target, centers, amps, Ls, steps=steps, lr=lr)   # re-fit ALL
     if stats is not None:
         stats["stages"] = stages
     splats = [(centers[k].copy(), float(amps[k]), Ls[k].copy()) for k in range(len(amps))]

@@ -166,7 +166,17 @@ class ScalarEncoder:
         nn = float(np.linalg.norm(vec))
         if nn == 0.0:
             return self._unwarp(float(grid[0]))
-        return self._unwarp(float(grid[int((mat @ (vec / nn)).argmax())]))
+        scores = mat @ (vec / nn)
+        j = int(scores.argmax())
+        # A grid point can tie with its neighbour to roundoff, especially at the
+        # midpoint between two decode samples. The cached matvec and the old
+        # scalar loop sum in different orders, so resolve near-ties by recomputing
+        # just that tiny candidate set with the scalar cosine path the test pins.
+        close = np.flatnonzero(scores >= scores[j] - 1e-12)
+        if close.size > 1:
+            scalar = [cosine(vec, self._phase_encode(grid[i])) for i in close]
+            j = int(close[int(np.argmax(scalar))])
+        return self._unwarp(float(grid[j]))
 
 
 # ---------------------------------------------------------------------------

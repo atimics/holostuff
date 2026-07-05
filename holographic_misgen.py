@@ -16,7 +16,7 @@ predictor's information is ALREADY fully spent on gating the candidate set; re-u
 is redundant.
 
 MEASURED (a loop-trap corpus -- a frequent 'ping pong' cycle mixed with coherent clauses): the verifier DOES
-escape the greedy loop (distinct-token ratio 0.44 vs greedy's 0.15 -- confirming the setup is real), but the
+escape the greedy loop (distinct-token ratio ~0.48 vs greedy's ~0.23 -- confirming the setup is real), but the
 balance combination matches the verifier EXACTLY on both fluency (valid-bigram rate) and anti-looping (distinct
 ratio). No improvement, on a clean corpus or a loopy one.
 
@@ -38,7 +38,7 @@ def _softmax(x):
     return e / (e.sum() + 1e-12)
 
 
-def _generate(mp, ver, mode, seed_toks, length=20, beam=6, lookback=8):
+def _generate(mp, ver, mode, seed_toks, length=20, beam=10, lookback=8):
     """Steered generation with a selectable selection rule: 'predictor' (greedy coupling), 'verifier' (the
     shipped rule -- best coherence among the beam), or 'balance' (MIS: argmax of softmax(coupling) *
     softmax(verifier) / their sum, over the beam)."""
