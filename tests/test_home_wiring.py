@@ -104,20 +104,14 @@ def test_fuse_and_the_bank_and_sequential_binds_all_agree():
     assert np.abs(fused - chained).max() < 1e-12
 
 
-def test_kept_negative_the_banks_baseline_was_fuse_not_sequential_binds():
+def test_kept_negative_the_banks_baseline_was_fuse_not_sequential_binds(monkeypatch):
     # `fuse` already collapsed the tree to one forward transform per distinct LEAF plus one inverse. The bank wins
     # only because its leaves are ALREADY spectra: one forward transform of the INPUT. A win without the strongest
-    # available baseline is not a win.
-    import time
+    # available baseline is not a win. Pin transform counts, not a six-sample clock: under xdist contention this
+    # test has measured fuse at both 0.7x and 7.1x sequential time with identical code. The operation count is the
+    # machine-independent reason for the measured speed ordering.
 
     v, atoms, b, names = _chain(D=1024, k=8)
-
-    def _t(fn, n=6):
-        fn()
-        t0 = time.perf_counter()
-        for _ in range(n):
-            fn()
-        return (time.perf_counter() - t0) / n
 
     def _fuse():
         e = Compute.leaf(v)
@@ -131,9 +125,48 @@ def test_kept_negative_the_banks_baseline_was_fuse_not_sequential_binds():
             x = bind(x, a)
         return x
 
-    t_seq, t_fuse, t_bank = _t(_seq), _t(_fuse), _t(lambda: b.apply_chain(names, v))
-    assert t_fuse < t_seq                       # fuse already beat sequential binds, before the bank existed
-    assert t_bank < t_fuse                      # ... and the bank beats fuse, by precomputing the leaves
+    # Fuse exposes its own counters: one rfft per distinct leaf (input + 8 atoms), then one irfft.
+    Compute.reset_fft_counts()
+    _fuse()
+    fused = Compute.fft_counts()
+    assert fused == {"rfft": len(atoms) + 1, "irfft": 1}
+
+    # Count the eager kernel through the aliases bind actually calls: every bind transforms both operands and
+    # materializes once, so an 8-bind chain costs 16 forward + 8 inverse transforms.
+    from holographic.agents_and_reasoning import holographic_ai as hai
+    seq = {"rfft": 0, "irfft": 0}
+    real_hai_rfft, real_hai_irfft = hai._rfft, hai._irfft
+
+    def seq_rfft(*args, **kwargs):
+        seq["rfft"] += 1
+        return real_hai_rfft(*args, **kwargs)
+
+    def seq_irfft(*args, **kwargs):
+        seq["irfft"] += 1
+        return real_hai_irfft(*args, **kwargs)
+
+    monkeypatch.setattr(hai, "_rfft", seq_rfft)
+    monkeypatch.setattr(hai, "_irfft", seq_irfft)
+    _seq()
+    assert seq == {"rfft": 2 * len(atoms), "irfft": len(atoms)}
+
+    # The bank precomputed every atom spectrum: applying the composed chain transforms only the input and output.
+    bank = {"rfft": 0, "irfft": 0}
+    real_np_rfft, real_np_irfft = np.fft.rfft, np.fft.irfft
+
+    def bank_rfft(*args, **kwargs):
+        bank["rfft"] += 1
+        return real_np_rfft(*args, **kwargs)
+
+    def bank_irfft(*args, **kwargs):
+        bank["irfft"] += 1
+        return real_np_irfft(*args, **kwargs)
+
+    monkeypatch.setattr(np.fft, "rfft", bank_rfft)
+    monkeypatch.setattr(np.fft, "irfft", bank_irfft)
+    b.apply_chain(names, v)
+    assert bank == {"rfft": 1, "irfft": 1}
+    assert sum(bank.values()) < sum(fused.values()) < sum(seq.values())
 
 
 def test_the_compute_home_routes_the_batch_encoder():
