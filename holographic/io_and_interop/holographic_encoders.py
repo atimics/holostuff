@@ -237,9 +237,10 @@ class ScalarEncoder:
         The grid encodings depend only on (lo, hi, steps, kernel, bandwidth) -- all fixed for this encoder --
         so they are built ONCE and cached as a unit-normalized matrix, and decode is then a single
         matrix-vector product. Measured ~200x faster than re-encoding the grid and cosine-scanning it on
-        every call, and bit-for-bit the same argmax (the rows are unit length, so mat @ (vec/|vec|) IS the
-        per-grid cosine). The same cached-matrix-instead-of-a-Python-loop move the core Vocabulary.cleanup
-        already uses for symbol recall."""
+        every call. A matvec may accumulate a last-bit-different score from NumPy's per-row dot product, so
+        numerically tied winners are rescored through the scalar cosine path; this preserves the original
+        deterministic argmax without giving up the fast path. The same cached-matrix-instead-of-a-Python-loop
+        move the core Vocabulary.cleanup already uses for symbol recall."""
         cache = getattr(self, "_grid_cache", None)
         if cache is None:
             cache = self._grid_cache = {}
@@ -253,7 +254,17 @@ class ScalarEncoder:
         nn = float(np.linalg.norm(vec))
         if nn == 0.0:
             return self._unwarp(float(grid[0]))
-        return self._unwarp(float(grid[int((mat @ (vec / nn)).argmax())]))
+        scores = mat @ (vec / nn)
+        best = int(scores.argmax())
+        # GEMV and np.dot are allowed to use different reduction trees. At the midpoint between two grid values
+        # that can flip a mathematically tied winner by one ulp (observed on Accelerate vs OpenBLAS). Only rescore
+        # candidates inside a conservative floating-point accumulation bound; ordinary decodes remain one GEMV.
+        tie_tol = np.finfo(float).eps * max(16, 4 * self.dim)
+        near = np.flatnonzero(scores >= scores[best] - tie_tol)
+        if len(near) > 1:
+            exact = [cosine(vec, self._phase_encode(float(grid[i]))) for i in near]
+            best = int(near[int(np.argmax(exact))])
+        return self._unwarp(float(grid[best]))
 
 
 # ---------------------------------------------------------------------------

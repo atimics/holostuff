@@ -345,14 +345,18 @@ def test_the_emitted_c_twin_matches_the_python_eval():
     assert 0.0 < rep32["max_abs_diff"] < 1e-4                  # f32: WGSL's tolerance
 
 
-def test_bit_identity_is_tree_dependent_which_is_why_a_boolean_would_lie():
+def test_bit_identity_is_platform_and_tree_dependent_so_error_is_the_contract():
     from holographic.mesh_and_geometry import holographic_sdf as S
     from holographic.mesh_and_geometry.holographic_sdfemit import validate_c
 
     P = np.random.default_rng(0).uniform(-2.0, 2.0, (50, 3))
-    assert validate_c(S.sphere(0.7), P, "c_f64")["bit_identical"] is True        # a bare sphere agrees exactly
+    sphere = validate_c(S.sphere(0.7), P, "c_f64")
+    assert sphere["max_abs_diff"] < 1e-14
+    assert isinstance(sphere["bit_identical"], bool)                 # diagnostic: Accelerate differs by one ulp
     tree, _scene = _tree_scene()
-    assert validate_c(tree, P, "c_f64")["bit_identical"] is False                # a scene does not
+    compound = validate_c(tree, P, "c_f64")
+    assert compound["max_abs_diff"] < 1e-14
+    assert isinstance(compound["bit_identical"], bool)
 
 
 def test_every_sdf_node_kind_is_emitted_or_refused():

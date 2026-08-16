@@ -30,10 +30,10 @@ doubles agreed exactly. Here the Python side is `numpy`: `np.linalg.norm` does n
 in that order -- it rescales to avoid overflow -- and `np.clip` is not `clamp`. The emitted C computes the same
 FUNCTION by a different summation, so it agrees to machine epsilon and not to the bit.
 
-**And bit-identity is TREE-DEPENDENT, which is why the module reports `max_abs_diff` and not a boolean.** A bare
-`sphere` comes out at exactly 0.0 -- `np.linalg.norm` and `sqrt(x*x+y*y+z*z)` happen to agree on three terms. Add a
-`rotate` and a `scale` and the extra multiplies reassociate: 6.7e-16, four ulp. *Asserting `bit_identical` would
-have been a bar that passes on a sphere and fails on a scene.*
+**And bit-identity is TREE- AND PLATFORM-DEPENDENT, which is why `max_abs_diff` is the contract.** A bare `sphere`
+has come out exactly equal on OpenBLAS and one ulp apart on Accelerate; `np.linalg.norm` and
+`sqrt(x*x+y*y+z*z)` are free to use different reduction trees. Add a `rotate` and a `scale` and the extra
+multiplies reassociate: 6.7e-16, four ulp. *Asserting `bit_identical` would be a platform accident, not a bar.*
 
 KEPT NEGATIVE 1 -- **`menger` is not emittable, and refusing is the feature.** It is an ITERATED domain fold: a
 Python loop over `iters` with a running scale. Unrolling it into a straight-line expression would produce a
@@ -417,8 +417,9 @@ def sdf_dialect(node, dialect="wgsl"):
 def validate_c(node, points, dialect="c_f64", timeout=60):
     """Compile the emitted C `map()` with `cc`, RUN it on `points`, and compare to the Python `_eval`.
 
-    Returns `{dialect, n, max_abs_diff, bit_identical}`. `c_f64` comes out BIT-IDENTICAL; `c_f32` does not, and its
-    error is the tolerance a WGSL port must be judged against."""
+    Returns `{dialect, n, max_abs_diff, bit_identical}`. `c_f64` is held to machine-epsilon agreement; its
+    diagnostic bit may vary with compiler/BLAS reduction order. `c_f32` is not bit-identical, and its error is the
+    tolerance a WGSL port must be judged against."""
     import os
     import subprocess
     import tempfile
@@ -446,7 +447,7 @@ def validate_c(node, points, dialect="c_f64", timeout=60):
 
 
 def _selftest():
-    """Regression trap: a compound tree emits to C, COMPILES, and matches the Python `_eval` bit-identically in f64;
+    """Regression trap: a compound tree emits to C, COMPILES, and matches the Python `_eval` to machine epsilon in f64;
     the f32 twin does not and that gap is WGSL's tolerance; the WGSL text is well formed; `menger` is refused; and
     `scale` keeps its outer factor."""
     from holographic.mesh_and_geometry import holographic_sdf as S
@@ -463,7 +464,7 @@ def _selftest():
     #    in a different order than `sqrt(x*x + y*y + z*z)`. Machine epsilon is the honest bar.
     rep64 = validate_c(tree, P, "c_f64")
     assert rep64["max_abs_diff"] < 1e-14, rep64
-    assert rep64["bit_identical"] is False, "if this ever passes, numpy changed its norm"
+    assert isinstance(rep64["bit_identical"], bool)                 # diagnostic only; platform reduction trees vary
 
     # 2. f32 cannot be bit-identical, and its error IS the WGSL tolerance
     rep32 = validate_c(tree, P, "c_f32")

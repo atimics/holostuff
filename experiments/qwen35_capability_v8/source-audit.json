@@ -1,0 +1,48 @@
+{
+  "schema": "lecore.qwen35.verification-source-audit.v1",
+  "audited_at_utc": "2026-08-16T00:00:00Z",
+  "result": "current_main_already_ancestor_rebase_noop",
+  "upstream": {
+    "repository": "AnOversizedMooseWithSocks/leCore",
+    "main_sha": "9c1fdd50af4ac18c07d0612ac39dfac144c3f6d3",
+    "is_ancestor_of_verification_head": true
+  },
+  "verification": {
+    "repository": "atimics/holostuff",
+    "pull_request": 31,
+    "head_sha": "3091ae40836373992e45761c80c872ddb18d5fd5",
+    "commits_ahead_of_upstream_main": 69
+  },
+  "v7_source": {
+    "original_sha": "cb3b1d2ac71c183bf9307ca7145a2a619ff30c30",
+    "github_commit_api_verified": true,
+    "rebased_equivalent_sha": "d140c110ca7c1e12c3e6457225f37634d209ecac",
+    "original_stable_patch_id": "0ae1b460f12e1cad2fc4d06706af4f8bb37ce03a",
+    "rebased_stable_patch_id": "0ae1b460f12e1cad2fc4d06706af4f8bb37ce03a",
+    "patches_equivalent": true
+  },
+  "v7_evidence": {
+    "result_tree_sha": "a37a8f0a1b4f8065d10dcb5bf711f0e640f6d9a3",
+    "result_tree_matches_merged_results_pr": true,
+    "evidence_sha256": "2871b7fa96685bd7f5d75f79368808d00649f9cf91950f4655e6099266319f8f",
+    "v6_pdf_sha256": "c4027bdfad7ba6fe358f14491281fa5e1bb2e1045c49d6e30fd0fea4b8e15e6f",
+    "v7_pdf_sha256": "1470e0db75ca1b46c9c818e4cbb8212c35a1d2bee3e033d59355432e49443088"
+  },
+  "post_v7_audit": {
+    "source_equivalent_boundary": "d140c110ca7c1e12c3e6457225f37634d209ecac",
+    "implementation_findings": [
+      "restacked Linux CI regressions were closed without changing frozen V7 evidence",
+      "the mandatory official Transformers reload test now runs outside the default watchdog",
+      "checkpoint I/O selftest and collision ownership were completed",
+      "semantic route ties and quantization mechanism tests were made deterministic"
+    ],
+    "evidence_history_merged": true,
+    "frozen_v7_result_mutated": false
+  },
+  "v8_admission_findings": [
+    "current safe sidecar builder uses a normalized last-position state",
+    "the measured memory implementation requires a normalized exponential bundle over positions",
+    "no V8 run may be admitted until index and query addressing are identical and manifest-bound",
+    "the 32 GiB envelope requires a miniature full-path validation before formal execution"
+  ]
+}

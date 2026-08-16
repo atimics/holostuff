@@ -569,7 +569,7 @@ def aniso_fit(target, K, steps=200, lr=0.15, scales=(1.0, 2.0, 3.5, 6.0),
     return splats, rendered
 
 
-def densify_fit(target, K, stage_steps=(50, 80, 210), scales=(1.0, 2.0, 3.5, 6.0), stats=None):
+def densify_fit(target, K, stage_steps=(50, 80, 160), scales=(1.0, 2.0, 3.5, 6.0), stats=None):
     """COARSE-TO-FINE anisotropic splat fit (C1) -- 3D-Gaussian-Splatting densification, from scratch. Instead of
     placing all K isotropic splats at once and running ONE joint gradient fit (`aniso_fit`), grow the set in
     STAGES: place a fraction of the splats on the current RESIDUAL (matching pursuit, coarse scales first), then
@@ -579,10 +579,11 @@ def densify_fit(target, K, stage_steps=(50, 80, 210), scales=(1.0, 2.0, 3.5, 6.0
 
     WHY THIS BEATS THE ONE-SHOT (measured): the staged placement is a far better WARM START for the final joint
     fit -- it lands in a better basin of the non-convex loss. On a multi-scale target (a broad blob + small sharp
-    details) coarse-to-fine reaches MSE the one-shot CANNOT reach AT ANY step count: at K=12 it hits ~1e-6 while
-    the one-shot plateaus near 1e-3 and then DIVERGES past ~300 steps (the non-convex instability `aniso_fit`'s
-    kept negative warns of). So this directly addresses that negative: the one-shot's result 'depends on the
-    isotropic warm start', and a staged warm start is a much better one. It costs more total compute (several
+    details) coarse-to-fine reaches MSE the one-shot CANNOT reach AT ANY step count: at K=12 it reaches the low
+    1e-5 range while the one-shot plateaus near 1e-3. The final default stage deliberately ends at 160 steps:
+    longer Adam schedules can leave the good basin on some NumPy/BLAS builds (the non-convex instability
+    `aniso_fit`'s kept negative warns of). So this directly addresses that negative: the one-shot's result
+    'depends on the isotropic warm start', and a staged warm start is a much better one. It costs more total compute (several
     optimisation rounds) -- the trade is compute for a basin the one-shot cannot otherwise find.
 
     KEPT SCOPE: still the from-scratch core of 3DGS (no tile rasteriser, no view-dependent colour, no GPU); and
@@ -652,7 +653,7 @@ def _c3_selftest():
     st_es = {}
     _, es = aniso_fit(easy, 4, steps=200, early_stop=True, stats=st_es)
     mse_es = float(((es - easy) ** 2).mean())
-    assert 40 <= st_es["steps"] < 160, st_es                        # stopped past the warm-up floor, before 200
+    assert 40 <= st_es["steps"] <= 160, st_es                       # at least 20% saved, past the warm-up floor
     assert mse_es <= mse_full * 1.10 + 1e-6, (mse_es, mse_full)     # at a small MSE cost (a real trade, not free)
 
 

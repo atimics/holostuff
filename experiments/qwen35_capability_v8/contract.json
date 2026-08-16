@@ -1,0 +1,125 @@
+{
+  "schema": "lecore.qwen35.capability-policy.v1",
+  "experiment_version": 8,
+  "status": "design_frozen_inputs_pending",
+  "research_question": "Does content-bound installed sidecar memory retrieve the correct grounded passage from unseen paraphrased queries, outperform a lexical control, and abstain when the corpus has no answer while every V7 safety invariant remains satisfied?",
+  "verification_base": {
+    "upstream_repository": "AnOversizedMooseWithSocks/leCore",
+    "upstream_main_sha": "9c1fdd50af4ac18c07d0612ac39dfac144c3f6d3",
+    "verification_repository": "atimics/holostuff",
+    "verification_pr": 31,
+    "verification_head_sha": "3091ae40836373992e45761c80c872ddb18d5fd5"
+  },
+  "prior_evidence": {
+    "version": 7,
+    "source_sha": "cb3b1d2ac71c183bf9307ca7145a2a619ff30c30",
+    "source_equivalent_rebased_sha": "d140c110ca7c1e12c3e6457225f37634d209ecac",
+    "stable_patch_id": "0ae1b460f12e1cad2fc4d06706af4f8bb37ce03a",
+    "evidence_sha256": "2871b7fa96685bd7f5d75f79368808d00649f9cf91950f4655e6099266319f8f",
+    "permanent_evidence": "https://arweave.net/RaDOgThGonnt9eLUe_1eKjJukMY-FnbXlBYSRmCUSa0/"
+  },
+  "subject": {
+    "model": "Qwen/Qwen3.5-0.8B",
+    "model_manifest_required": true,
+    "installation_corpus_sha256_required": true,
+    "query_jsonl_sha256_required": true,
+    "separate_query_authoring_source_required": true
+  },
+  "inputs": {
+    "indexed_passages": 200,
+    "answerable_evaluation_queries": 160,
+    "unanswerable_calibration_queries": 40,
+    "unanswerable_evaluation_queries": 40,
+    "query_rows_total": 240,
+    "query_schema": "lecore.qwen35.capability-query.v1",
+    "copied_substring_rejection_normalized_characters": 24,
+    "duplicate_query_ids_forbidden": true,
+    "duplicate_query_text_forbidden": true
+  },
+  "treatment": {
+    "name": "content_bound_installed_sidecar_memory",
+    "artifact_schema": "lecore.installed-memory-index.v2",
+    "manifest_digest_required": true,
+    "legacy_last_position_sidecars_allowed": false,
+    "address_encoder": {
+      "name": "normalized_exponential_bundle_v1",
+      "layer": "last",
+      "decay": 0.99,
+      "maximum_tokens": 200,
+      "center_on_index_mean": true,
+      "l2_epsilon": 1e-30,
+      "similarity": "cosine",
+      "index_and_query_encoder_must_match": true,
+      "tie_break": "passage_id_ascending"
+    }
+  },
+  "controls": {
+    "lexical": {
+      "name": "bm25",
+      "k1": 1.2,
+      "b": 0.75,
+      "tie_break": "passage_id_ascending"
+    },
+    "shuffled": {
+      "seed": 0,
+      "permutation_target": "passage_identity"
+    },
+    "no_sidecar": {
+      "required_behavior": "typed_refusal",
+      "fallback_forbidden": true
+    }
+  },
+  "statistics": {
+    "unit": "query",
+    "paired_bootstrap_resamples": 10000,
+    "paired_bootstrap_seed": 0,
+    "paired_bootstrap_interval": "two_sided_percentile_95pct",
+    "abstention_calibration_false_positive_ceiling": 0.05,
+    "abstention_threshold_tie_policy": "more_conservative"
+  },
+  "acceptance": {
+    "conjunctive": true,
+    "v7_invariants_required": true,
+    "answerable_queries_required": 160,
+    "unanswerable_evaluation_queries_required": 40,
+    "minimum_treatment_recall_at_1": 0.8,
+    "minimum_treatment_recall_at_5": 0.95,
+    "minimum_paired_recall_at_1_delta_lower_95": 0.0,
+    "paired_delta_lower_endpoint_strictly_greater": true,
+    "maximum_unanswerable_false_positive_rate": 0.05,
+    "maximum_shuffled_recall_at_1": 0.1,
+    "sidecar_integrity_required": true,
+    "maximum_peak_rss_mib": 28672,
+    "early_acceptance_allowed": false,
+    "formal_attempts": 1
+  },
+  "execution": {
+    "ram_gib": 32,
+    "miniature_end_to_end_required_before_admission": true,
+    "timeout_seconds": 21600,
+    "maximum_compute_usd": 10.0,
+    "spot_instance_allowed": false,
+    "cloud_execution_authorized": false
+  },
+  "outcomes": [
+    "accepted",
+    "rejected",
+    "execution_failure"
+  ],
+  "publication": {
+    "publish_every_terminal_outcome": true,
+    "raw_per_query_results_required": true,
+    "ilxyr_ledger_required": true,
+    "permanent_receipt_required": true,
+    "model_weights_excluded": true
+  },
+  "exclusions": [
+    "native_cached_step_generation",
+    "spectral_filtering",
+    "weight_resident_metadata",
+    "autonomous_search_triggering",
+    "generation_quality_claims",
+    "models_other_than_qwen35_0p8b",
+    "post_admission_threshold_tuning"
+  ]
+}
