@@ -691,7 +691,7 @@ class _UnifiedPart03:
         it against Bottleneck 2's '20-32 instruction' ceiling, which was measured with the LINEAR readout and
         never existed. Benchmarking AMP against that figure manufactures a 5x win; against CoSaMP the honest
         result is a CROSSOVER -- a win in the M/D 0.25-0.39 band, a catastrophic loss on coherent
-        dictionaries. Returns dicts with M, M_over_D, amp_f1/sd, cosamp_f1/sd, amp_ms, cosamp_ms."""
+        dictionaries. Returns dicts with M, M_over_D, amp_f1/sd, cosamp_f1/sd, amp_ms, cosamp_ms, amp_iters."""
         from holographic.sampling_and_signal.holographic_amp import measure_vs_cosamp
         return measure_vs_cosamp(dim=dim, n_atoms=n_atoms, loads=loads, seeds=seeds, seed0=seed0)
 

@@ -154,9 +154,10 @@ def test_sdf_to_device_bridge_is_real():
     assert abs(float(d[12, 16]) - 2.0) < 5e-3, float(d[12, 16])
     assert float(d[0, 0]) == -1.0 and float(d[-1, -1]) == -1.0, "corner rays must MISS and say so"
 
-    # the emitted map() itself is bit-identical to Python where it CAN be executed
+    # the emitted map() itself agrees to machine epsilon where it CAN be executed. Exact bits depend on the
+    # compiler/NumPy reduction trees (a bare sphere differs by one ulp on Accelerate).
     r = validate_c(tree, np.random.default_rng(0).uniform(-2, 2, (128, 3)), dialect="c_f64")
-    assert r["bit_identical"], r
+    assert r["max_abs_diff"] < 1e-14, r
 
     # the device path REFUSES rather than pretending, when there is no adapter
     from holographic.io_and_interop.holographic_wgpurun import available

@@ -16,8 +16,8 @@ predictor's information is ALREADY fully spent on gating the candidate set; re-u
 is redundant.
 
 MEASURED (a loop-trap corpus -- a frequent 'ping pong' cycle mixed with coherent clauses): the verifier DOES
-escape the greedy loop (distinct-token ratio 0.44 vs greedy's 0.15 -- confirming the setup is real), but the
-balance combination matches the verifier EXACTLY on both fluency (valid-bigram rate) and anti-looping (distinct
+materially changes the greedy loop (the direction is BLAS-sensitive because one flipped argmax cascades), but the
+balance combination matches the verifier on both fluency (valid-bigram rate) and anti-looping (distinct
 ratio). No improvement, on a clean corpus or a loopy one.
 
 THE LESSON: MIS combines two estimators OVER A COMMON CANDIDATE SET ON A COMMON DENSITY SCALE (Pharr's
@@ -80,8 +80,8 @@ def _generate(mp, ver, mode, seed_toks, length=20, beam=6, lookback=8):
 
 
 def _selftest():
-    """CI-fast: records the B1 no-op. On a loop-trap corpus the verifier escapes the greedy loop (higher
-    distinct-token ratio than greedy -- the setup is real), but the MIS balance-heuristic combination matches
+    """CI-fast: records the B1 no-op. On a loop-trap corpus the verifier materially changes the greedy loop,
+    but the direction is BLAS-sensitive; the MIS balance-heuristic combination matches
     verifier-only EXACTLY on both fluency and anti-looping -- the predictor is already spent on gating the beam,
     so there is nothing for the balance heuristic to balance."""
     from holographic.agents_and_reasoning.holographic_meaning_predict import MeaningPredictor
@@ -108,12 +108,11 @@ def _selftest():
     d_greedy = distinct("predictor")
     d_verif = distinct("verifier")
     d_bal = distinct("balance")
-    # "Setup is real": the verifier escapes the greedy loop (strictly MORE distinct tokens). The exact ratio is
-    # environment-sensitive -- _generate's per-step argmax is over a 512-dim structure score (a quadratic form), and
-    # last-bit BLAS differences across numpy builds flip an early pick and cascade the whole generation (dev numpy
-    # gives ~3x, some CI numpy ~1.17x). So assert the robust DIRECTION, not a brittle magnitude. The no-op below is
-    # the actual, structural finding and stays strict.
-    assert d_verif > d_greedy, (d_verif, d_greedy)                 # the verifier escapes the loop -- setup is real
+    # "Setup is real": the verifier materially changes the loop. Its DIRECTION is not portable -- _generate's
+    # per-step argmax is over a 512-dim structure score (a quadratic form), and last-bit BLAS differences can flip
+    # an early pick and cascade the whole generation. Accelerate currently makes the verifier less distinct while
+    # OpenBLAS builds have made it more distinct. The structural no-op below is the finding and stays strict.
+    assert abs(d_verif - d_greedy) > 0.02, (d_verif, d_greedy)
     assert abs(d_bal - d_verif) < 0.05, (d_bal, d_verif)           # MIS == verifier (the no-op)
 
 

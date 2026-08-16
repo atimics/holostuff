@@ -164,7 +164,7 @@ def amp_recall(cue, codebook, K=None, iters=30, alpha=None, tol=1e-12, stats=Non
 
 def measure_vs_cosamp(dim=512, n_atoms=2048, loads=(16, 32, 64, 86, 128, 171), seeds=6, seed0=0):
     """Head-to-head against the HONEST baseline -- CoSaMP, already shipped -- at matched load, over several
-    seeds, reporting exact-support F1 mean and spread plus wall time for each.
+    seeds, reporting exact-support F1 mean and spread, wall time, and AMP iteration count for each.
 
     WHY THIS FUNCTION EXISTS: the research consolidation ranks AMP #1 by scoring it against Bottleneck 2's
     "20-32 instruction" ceiling, which was measured with the LINEAR readout. CoSaMP already holds exact
@@ -182,7 +182,7 @@ def measure_vs_cosamp(dim=512, n_atoms=2048, loads=(16, 32, 64, 86, 128, 171), s
 
     rows = []
     for M in loads:
-        fa, fc, ta, tc = [], [], [], []
+        fa, fc, ta, tc, ai = [], [], [], [], []
         for s in range(seeds):
             rng = np.random.default_rng(seed0 + s)
             cb = rng.standard_normal((n_atoms, dim))
@@ -190,8 +190,10 @@ def measure_vs_cosamp(dim=512, n_atoms=2048, loads=(16, 32, 64, 86, 128, 171), s
             true = rng.choice(n_atoms, size=M, replace=False)
             cue = cb[true].sum(axis=0)
             t0 = time.perf_counter()
-            ga = [i for i, _ in amp_recall(cue, cb, K=M)]
+            ast = {}
+            ga = [i for i, _ in amp_recall(cue, cb, K=M, stats=ast)]
             ta.append((time.perf_counter() - t0) * 1e3)
+            ai.append(ast["iters"])
             t0 = time.perf_counter()
             gc = [i for i, _ in cosamp_recall(cue, cb, M)]
             tc.append((time.perf_counter() - t0) * 1e3)
@@ -200,7 +202,8 @@ def measure_vs_cosamp(dim=512, n_atoms=2048, loads=(16, 32, 64, 86, 128, 171), s
         rows.append({"M": M, "M_over_D": M / dim,
                      "amp_f1": float(np.mean(fa)), "amp_sd": float(np.std(fa)),
                      "cosamp_f1": float(np.mean(fc)), "cosamp_sd": float(np.std(fc)),
-                     "amp_ms": float(np.median(ta)), "cosamp_ms": float(np.median(tc))})
+                     "amp_ms": float(np.median(ta)), "cosamp_ms": float(np.median(tc)),
+                     "amp_iters": int(np.median(ai))})
     return rows
 
 

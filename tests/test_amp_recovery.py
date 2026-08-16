@@ -139,10 +139,14 @@ def test_cosamp_baseline_is_not_a_strawman_at_default_iterations():
 
 
 def test_amp_cost_is_flat_in_load_while_cosamp_grows():
-    # The other genuine advantage: AMP has no per-round least-squares, so its cost does not track M.
+    # The other genuine advantage: AMP has no per-round least-squares, so its work does not track M. Pin the
+    # deterministic work count, not a tight wall-clock ratio: under `pytest -n auto`, unrelated workers can occupy
+    # the BLAS threads between the light and heavy samples (observed 3.05x once, then 0.92-1.00x in six isolated
+    # repeats). The loose timing bound still catches a gross accidental M-dependent loop.
     rows = measure_vs_cosamp(dim=256, n_atoms=1024, loads=(16, 86), seeds=3)
     light, heavy = rows[0], rows[1]
-    assert heavy["amp_ms"] < 3 * light["amp_ms"], "AMP cost is no longer flat in load"
+    assert heavy["amp_iters"] == light["amp_iters"] == 30, "AMP work now changes with load"
+    assert heavy["amp_ms"] < 10 * light["amp_ms"], "AMP gained gross load-dependent work"
     assert heavy["cosamp_ms"] > light["cosamp_ms"], "CoSaMP cost no longer grows with load"
 
 
